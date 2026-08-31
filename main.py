@@ -5,30 +5,40 @@ from flask import Flask, request, jsonify
 import asyncio
 import threading
 
-# --- CONFIGURATION ---
-TARGET_CHANNEL_ID = 1128792389813817519  # Put your channel ID here
+# --- CONFIGURATION (DON'T FORGET YOUR CHANNEL ID) ---
+TARGET_CHANNEL_ID = 1128792389813817519  # Replace 0 with your Discord text channel ID
 YOUR_DISCORD_ID = 898258858458382417    
 # --------------------------------------------
 
 app = Flask('')
 bot_instance = None
 
+# THIS FIXES ERROR 405: It allows Render to accept data from Xeno
 @app.route('/egg_spawn', methods=['POST'])
 def egg_spawn():
     data = request.json or {}
     message_text = data.get('message', 'An egg spawned!')
+    
     if bot_instance and bot_instance.is_ready():
-        asyncio.run_coroutine_threadsafe(send_automated_alert(message_text), bot_instance.loop)
+        asyncio.run_coroutine_threadsafe(
+            send_automated_alert(message_text), 
+            bot_instance.loop
+        )
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "bot_not_ready"}), 500
 
 async def send_automated_alert(text):
     channel = bot_instance.get_channel(TARGET_CHANNEL_ID)
     if channel:
-        embed = discord.Embed(title="🚨 AUTOMATED GLOBAL EGG SPAWN! 🚨", description=f"**Notification detected:**\n`{text}`", color=discord.Color.gold())
+        embed = discord.Embed(
+            title="🚨 AUTOMATED GLOBAL EGG SPAWN! 🚨",
+            description=f"**Notification detected from Roblox:**\n`{text}`",
+            color=discord.Color.gold()
+        )
         embed.set_footer(text="Steal an Egg Live Capture")
         await channel.send(content=f"<@{YOUR_DISCORD_ID}>", embed=embed)
 
+# Discord Bot Setup
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -39,7 +49,7 @@ async def on_ready():
     bot_instance = bot
     print(f'Bot is online as {bot.user}')
 
-# NEW SIMPLIFIED COMMAND: You can just type !egg followed by any text!
+# Backup Manual Command
 @bot.command()
 async def egg(ctx, *, text_info: str):
     if ctx.channel.id == TARGET_CHANNEL_ID:
