@@ -5,44 +5,43 @@ from flask import Flask, request, jsonify
 import asyncio
 import threading
 
-# --- CONFIGURATION (CHANGE THESE NUMBERS) ---
-# Paste your Discord Channel ID below (Replace the 0 with your number)
+# --- CONFIGURATION ---
+# REPLACE THE 0 BELOW WITH YOUR DISCORD CHANNEL ID
 TARGET_CHANNEL_ID = 0  
 
-# Paste your Discord User ID below (Replace the 0 with your number)
-YOUR_DISCORD_ID = 0    
+# YOUR DISCORD USER ID (ALREADY ADDED FOR YOU)
+YOUR_DISCORD_ID = 898258858458382417    
 # --------------------------------------------
 
-# 1. SETUP THE WEB SERVER TO RECEIVE EGG DATA FROM ROBLOX
 app = Flask('')
 bot_instance = None
 
+# Automated Web Receiver for your Roblox Executor
 @app.route('/egg_spawn', methods=['POST'])
 def egg_spawn():
     data = request.json or {}
-    egg_name = data.get('egg_name', 'Unknown Egg')
-    rarity = data.get('rarity', 'Secret')
+    message_text = data.get('message', 'An egg spawned!')
     
     if bot_instance and bot_instance.is_ready():
-        # Safely send the message from the web server thread to Discord
         asyncio.run_coroutine_threadsafe(
-            send_egg_alert(egg_name, rarity), 
+            send_automated_alert(message_text), 
             bot_instance.loop
         )
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "bot_not_ready"}), 500
 
-async def send_egg_alert(egg_name, rarity):
+async def send_automated_alert(text):
     channel = bot_instance.get_channel(TARGET_CHANNEL_ID)
     if channel:
-        # This sends the message and pings your specific account
-        await channel.send(f"🚨 **GLOBAL SPAWN ALERT!** 🚨\n<@{YOUR_DISCORD_ID}> A **{rarity}** egg (**{egg_name}**) has just spawned globally!")
+        embed = discord.Embed(
+            title="🚨 AUTOMATED GLOBAL EGG SPAWN! 🚨",
+            description=f"**Notification detected:**\n`{text}`",
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="Steal an Egg Live Capture")
+        await channel.send(content=f"<@{YOUR_DISCORD_ID}>", embed=embed)
 
-def run_web_server():
-    # Runs the web server on port 8080
-    app.run(host='0.0.0.0', port=8080)
-
-# 2. SETUP THE DISCORD BOT
+# Discord command (Backup)
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -53,12 +52,19 @@ async def on_ready():
     bot_instance = bot
     print(f'Bot is online as {bot.user}')
 
-# 3. START BOTH SERVICES TOGETHER
+@bot.command()
+async def egg(ctx, rarity: str, *, egg_name: str):
+    if ctx.channel.id == TARGET_CHANNEL_ID:
+        await ctx.message.delete()
+        embed = discord.Embed(title="🚨 MANUAL EGG ALERT! 🚨", description=f"A **{rarity.upper()}** egg ({egg_name}) has spawned!", color=discord.Color.red())
+        await ctx.send(content=f"<@{YOUR_DISCORD_ID}>", embed=embed)
+
+def run_web_server():
+    app.run(host='0.0.0.0', port=8080)
+
 if __name__ == "__main__":
-    # Start the web server in a background thread
     server_thread = threading.Thread(target=run_web_server)
     server_thread.daemon = True
     server_thread.start()
-    
-    # Securely logs in using the DISCORD_TOKEN environment variable from Render
     bot.run(os.environ.get('DISCORD_TOKEN'))
+
